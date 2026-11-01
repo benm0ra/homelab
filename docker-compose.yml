@@ -1,0 +1,157 @@
+# Homelab service stack
+# Host: Ubuntu 24.04 VM on Proxmox VE
+# All secrets and host-specific values live in .env (see .env.example)
+
+services:
+  # ---------- Dashboard & management ----------
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    ports:
+      - "3000:3000"
+    environment:
+      - HOMEPAGE_ALLOWED_HOSTS=${HOMEPAGE_ALLOWED_HOSTS}
+    volumes:
+      - ./homepage/config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./portainer/data:/data
+    restart: unless-stopped
+
+  # ---------- Observability ----------
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./uptime-kuma/data:/app/data
+    restart: unless-stopped
+
+  glances:
+    image: nicolargo/glances:latest-full
+    container_name: glances
+    pid: host
+    ports:
+      - "61208:61208"
+    environment:
+      - GLANCES_OPT=-w
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  speedtest-tracker:
+    image: lscr.io/linuxserver/speedtest-tracker:latest
+    container_name: speedtest-tracker
+    ports:
+      - "8082:80"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - APP_KEY=${SPEEDTEST_APP_KEY}
+      - DB_CONNECTION=sqlite
+    volumes:
+      - ./speedtest-tracker/config:/config
+    restart: unless-stopped
+
+  # ---------- Media & library ----------
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    ports:
+      - "8096:8096"
+    volumes:
+      - ./jellyfin/config:/config
+      - ${DATA_ROOT}/.docker/jellyfin/cache:/cache
+      - ${MEDIA_ROOT}:/media:ro
+    restart: unless-stopped
+
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    ports:
+      - "4533:4533"
+    volumes:
+      - ./navidrome/data:/data
+      - ${MEDIA_ROOT}/Music:/music:ro
+    restart: unless-stopped
+
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./kavita/config:/kavita/config
+      - ${MEDIA_ROOT}:/media:ro
+    restart: unless-stopped
+
+  romm:
+    image: rommapp/romm:latest
+    container_name: romm
+    depends_on:
+      - romm-db
+    ports:
+      - "8081:8080"
+    environment:
+      - DB_HOST=romm-db
+      - DB_NAME=romm
+      - DB_USER=romm
+      - DB_PASSWD=${ROMM_DB_PASSWORD}
+      - ROMM_AUTH_SECRET_KEY=${ROMM_AUTH_SECRET_KEY}
+    volumes:
+      - ./romm/config:/romm/config
+      - ./romm/assets:/romm/assets
+      - ${DATA_ROOT}/roms:/romm/library
+    restart: unless-stopped
+
+  romm-db:
+    image: mariadb:latest
+    container_name: romm-db
+    environment:
+      - MARIADB_ROOT_PASSWORD=${ROMM_DB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=romm
+      - MARIADB_USER=romm
+      - MARIADB_PASSWORD=${ROMM_DB_PASSWORD}
+    volumes:
+      - ./romm/db:/var/lib/mysql
+    restart: unless-stopped
+
+  # ---------- Files & sync ----------
+  filebrowser:
+    image: gtstef/filebrowser:latest
+    container_name: filebrowser
+    ports:
+      - "8080:80"
+    environment:
+      - FILEBROWSER_CONFIG=data/config.yaml
+    volumes:
+      - ./filebrowser/data:/home/filebrowser/data
+      - ${DATA_ROOT}:/srv
+    restart: unless-stopped
+
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing
+    ports:
+      - "8384:8384"
+      - "22000:22000/tcp"
+      - "22000:22000/udp"
+      - "21027:21027/udp"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ./syncthing/config:/config
+      - ${DATA_ROOT}/roms:/data/roms
+    restart: unless-stopped

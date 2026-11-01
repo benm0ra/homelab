@@ -1,0 +1,15 @@
+# Secrets
+.env
+
+# Runtime data and per-service state (never commit)
+*/config/
+*/data/
+*/db/
+*/assets/
+*/cache/
+!config/
+!config/filebrowser/
+
+# OS / editor
+.DS_Store
+*.swp

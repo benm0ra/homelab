@@ -1,0 +1,9 @@
+# Copy to ./filebrowser/data/config.yaml before first start.
+# Change the admin password on first login.
+server:
+  port: 80
+  sources:
+    - path: /srv
+auth:
+  adminUsername: admin
+  adminPassword: change-me-on-first-login
